@@ -2,25 +2,23 @@ import logging
 import sqlite3
 import asyncio
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # --- KONFIGURATSIYA ---
-TOKEN = "8735179134:AAGcVDl-X2INj0ZNVzkIcIGXeRmzplq8jF0"
-CHANNEL_ID = "@instagram_kasimov"  # Masalan: @inst_kasimov
-ADMIN_ID = 6052580480 # O'zingizning Telegram ID-ingiz (Raqamlarda)
+TOKEN = "SIZNING_BOT_TOKENINGIZ"
+CHANNEL_ID = "@SIZNING_KANALINGIZ"
+ADMIN_ID = 123456789 # O'zingizning ID-ingiz
 
-# --- POST HAVOLALARI ---
-PRIZE_POST_URL = "https://t.me/instagram_gifts/6?single"  # Yutuqlar haqida post linki
-RULES_POST_URL = "https://t.me/instagram_gifts/7"  # Qoidalar haqida post linki
-SUPPORT_USER = "@xodim_aka"                    # Murojaat va hamkorlik uchun
+PRIZE_POST_URL = "https://t.me/your_channel/1"
+RULES_POST_URL = "https://t.me/your_channel/2"
+SUPPORT_USER = "@xodim_aka"
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# --- MA'LUMOTLAR BAZASI ---
+# --- BAZA ---
 def init_db():
     conn = sqlite3.connect("contest.db")
     cursor = conn.cursor()
@@ -37,25 +35,24 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- ASOSIY REPLIKATSIYA MENYUSI ---
+# --- IXCHAM VA CHIROYLI MENYU ---
 def main_menu():
+    # Tugmalar 2 tadan qilib ixcham joylandi
     kb = [
-        [KeyboardButton(text="YUTUQLAR 🎁"), KeyboardButton(text="PROFIL 👤")],
-        [KeyboardButton(text="STATISTIKA 📊"), KeyboardButton(text="HAVOLA OLISH 🔗")],
-        [KeyboardButton(text="QOIDALAR ℹ️"), KeyboardButton(text="MUROJAAT VA HAMKORLIK 🤝")]
+        [KeyboardButton(text="🎁 Yutuqlar"), KeyboardButton(text="👤 Profil")],
+        [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🔗 Havola")],
+        [KeyboardButton(text="ℹ️ Qoidalar"), KeyboardButton(text="🤝 Hamkorlik")]
     ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-# --- A'ZOLIKNI TEKSHIRISH FUNKSIYASI ---
 async def is_member(user_id):
     try:
         member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
         return member.status in ["member", "administrator", "creator"]
-    except Exception as e:
-        logging.error(f"Tekshirishda xato: {e}")
+    except:
         return False
 
-# --- ASOSIY HANDLERLAR ---
+# --- HANDLERLAR ---
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
@@ -70,7 +67,6 @@ async def cmd_start(message: types.Message):
     existing_user = cursor.fetchone()
     
     if not existing_user:
-        # Yangi odam haqida adminga bildirishnoma
         try:
             await bot.send_message(ADMIN_ID, f"🆕 **Yangi foydalanuvchi:**\n👤 {name}\n🆔 `{user_id}`\n🔗 @{uname}")
         except: pass
@@ -85,11 +81,11 @@ async def cmd_start(message: types.Message):
     conn.close()
 
     btn = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Kanalga a'zo bo'lish 📢", url=f"https://t.me/{CHANNEL_ID[1:]}")],
-        [InlineKeyboardButton(text="Tasdiqlash ✅", callback_data="check_sub")]
+        [InlineKeyboardButton(text="📢 Kanalga a'zo bo'lish", url=f"https://t.me/{CHANNEL_ID[1:]}")],
+        [InlineKeyboardButton(text="✅ Tasdiqlash", callback_data="check_sub")]
     ])
     
-    await message.answer(f"Assalomu alaykum **{name}**!\n\nTanlovda qatnashish uchun kanalimizga a'zo bo'lishingiz shart. Keyin 'Tasdiqlash' tugmasini bosing 👇", reply_markup=btn, parse_mode="Markdown")
+    await message.answer(f"Assalomu alaykum **{name}**!\nTanlovda qatnashish uchun kanalga a'zo bo'ling:", reply_markup=btn, parse_mode="Markdown")
 
 @dp.callback_query(F.data == "check_sub")
 async def callback_check(call: types.CallbackQuery):
@@ -104,44 +100,32 @@ async def callback_check(call: types.CallbackQuery):
             if res[0]:
                 cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (res[0],))
                 try:
-                    await bot.send_message(res[0], f"🎁 **Tabriklaymiz!** Sizning havolangiz orqali yangi a'zo qo'shildi. Sizga 1 ball berildi.")
+                    await bot.send_message(res[0], f"🎁 **Yangi a'zo qo'shildi!** Sizga 1 ball berildi.")
                 except: pass
             cursor.execute("UPDATE users SET is_joined = 1 WHERE user_id = ?", (user_id,))
             conn.commit()
         conn.close()
         
         await call.message.delete()
-        await call.message.answer("🎉 **Muvaffaqiyatli ro'yxatdan o'tdingiz!**\n\nQuyidagi tugmalar orqali ballaringizni tekshirishingiz va havolangizni olishingiz mumkin:", reply_markup=main_menu(), parse_mode="Markdown")
+        await call.message.answer("🎉 **Ro'yxatdan o'tdingiz!**\nMenyudan foydalanishingiz mumkin:", reply_markup=main_menu(), parse_mode="Markdown")
     else:
-        await call.answer("❌ Siz hali kanalga a'zo emassiz!", show_alert=True)
+        await call.answer("❌ Kanalga a'zo emassiz!", show_alert=True)
 
-# --- TUGMALAR BILAN ISHLASH ---
-
-@dp.message(F.text == "YUTUQLAR 🎁")
+@dp.message(F.text == "🎁 Yutuqlar")
 async def prizes(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Yutuqlarni ko'rish 👀", url=PRIZE_POST_URL)]
-    ])
-    await message.answer("🎁 **Tanlov yutuqlari va sovg'alar haqida to'liq ma'lumot olish uchun quyidagi tugmani bosing:**", reply_markup=kb, parse_mode="Markdown")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="👀 Ko'rish", url=PRIZE_POST_URL)]])
+    await message.answer("🎁 **Yutuqlar haqida ma'lumot:**", reply_markup=kb, parse_mode="Markdown")
 
-@dp.message(F.text == "PROFIL 👤")
+@dp.message(F.text == "👤 Profil")
 async def show_profile(message: types.Message):
     conn = sqlite3.connect("contest.db")
     cursor = conn.cursor()
     cursor.execute("SELECT points FROM users WHERE user_id = ?", (message.from_user.id,))
     points = cursor.fetchone()[0]
     conn.close()
-    
-    text = (
-        f"👤 **Sizning profilingiz**\n\n"
-        f"📋 Ism: `{message.from_user.full_name}`\n"
-        f"🆔 ID: `{message.from_user.id}`\n\n"
-        f"🏆 **To'plangan ballaringiz: {points} ta**\n"
-        f"💡 Ball yig'ish uchun 'HAVOLA OLISH' tugmasidan foydalaning."
-    )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(f"👤 **Profilingiz**\n\n🆔 ID: `{message.from_user.id}`\n🏆 Ballaringiz: **{points} ta**", parse_mode="Markdown")
 
-@dp.message(F.text == "STATISTIKA 📊")
+@dp.message(F.text == "📊 Statistika")
 async def statistics(message: types.Message):
     conn = sqlite3.connect("contest.db")
     cursor = conn.cursor()
@@ -150,41 +134,26 @@ async def statistics(message: types.Message):
     conn.close()
 
     res = "🏆 **TOP 10 ISHTIROKCHILAR**\n\n"
-    if not top_users:
-        res += "Hozircha ishtirokchilar yo'q."
-    else:
-        for i, (name, p) in enumerate(top_users, 1):
-            medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
-            res += f"{medal} {name} — **{p}** ball\n"
+    for i, (name, p) in enumerate(top_users, 1):
+        medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
+        res += f"{medal} {name} — **{p}**\n"
     
-    await message.answer(res, parse_mode="Markdown")
+    await message.answer(res if top_users else "Hozircha ma'lumot yo'q.", parse_mode="Markdown")
 
-@dp.message(F.text == "QOIDALAR ℹ️")
+@dp.message(F.text == "ℹ️ Qoidalar")
 async def rules(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Qoidalarni o'qish 📝", url=RULES_POST_URL)]
-    ])
-    await message.answer("ℹ️ **Tanlov shartlari, g'oliblarni aniqlash tartibi va qoidalar bilan tanishish uchun tugmani bosing:**", reply_markup=kb, parse_mode="Markdown")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📝 O'qish", url=RULES_POST_URL)]])
+    await message.answer("ℹ️ **Tanlov qoidalari:**", reply_markup=kb, parse_mode="Markdown")
 
-@dp.message(F.text == "HAVOLA OLISH 🔗")
+@dp.message(F.text == "🔗 Havola")
 async def get_link(message: types.Message):
     bot_info = await bot.get_me()
     link = f"https://t.me/{bot_info.username}?start={message.from_user.id}"
-    text = (
-        f"🔗 **Sizning taklif havolangiz:**\n\n`{link}`\n\n"
-        f"👆 Ushbu havolani nusxalab do'stlaringizga yuboring. Har bir qo'shilgan a'zo uchun sizga 1 ball beriladi!"
-    )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(f"🔗 **Taklif havolangiz:**\n\n`{link}`\n\nDo'stlaringizga yuboring!", parse_mode="Markdown")
 
-@dp.message(F.text == "MUROJAAT VA HAMKORLIK 🤝")
+@dp.message(F.text == "🤝 Hamkorlik")
 async def support(message: types.Message):
-    text = (
-        f"🤝 **Murojaat va Hamkorlik**\n\n"
-        f"Savollar, takliflar yoki reklama masalalari bo'yicha bizning managerga yozishingiz mumkin:\n\n"
-        f"👤 Manager: {SUPPORT_USER}\n\n"
-        f"🛑 _Iltimos, faqat muhim masalalar yuzasidan murojaat qiling!_"
-    )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(f"🤝 **Hamkorlik va Murojaat:**\n\n👤 Manager: {SUPPORT_USER}", parse_mode="Markdown")
 
 async def main():
     init_db()
@@ -192,4 +161,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-        
+    
