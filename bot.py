@@ -6,12 +6,12 @@ from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 # --- KONFIGURATSIYA ---
-TOKEN = "SIZNING_BOT_TOKENINGIZ"
-CHANNEL_ID = "@SIZNING_KANALINGIZ"
-ADMIN_ID = 123456789 # O'zingizning ID-ingiz
+TOKEN = "8735179134:AAGcVDl-X2INj0ZNVzkIcIGXeRmzplq8jF0"
+CHANNEL_ID = "@instagram_kasimov"
+ADMIN_ID = 6052580480 # O'zingizning ID-ingiz
 
-PRIZE_POST_URL = "https://t.me/your_channel/1"
-RULES_POST_URL = "https://t.me/your_channel/2"
+PRIZE_POST_URL = "https://t.me/instagram_gifts/6?single"
+RULES_POST_URL = "https://t.me/instagram_gifts/7"
 SUPPORT_USER = "@xodim_aka"
 
 logging.basicConfig(level=logging.INFO)
@@ -41,7 +41,7 @@ def main_menu():
     kb = [
         [KeyboardButton(text="🎁 Yutuqlar"), KeyboardButton(text="👤 Profil")],
         [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🔗 Havola")],
-        [KeyboardButton(text="ℹ️ Qoidalar"), KeyboardButton(text="🤝 Hamkorlik")]
+        [KeyboardButton(text="❗ Shartlar"), KeyboardButton(text="👨🏻‍💻 Hamkorlik")]
     ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
