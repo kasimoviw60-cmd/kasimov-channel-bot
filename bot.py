@@ -4,13 +4,17 @@ import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # --- KONFIGURATSIYA ---
-TOKEN = "8735179134:AAFbrGdmSbq-lH7na7d7AhyhBRKe-FpXm2M" # BotFather'dan olingan
-CHANNEL_ID = "@instagram_kasimov" # Masalan: @inst_kasimov
-ADMIN_ID = 6052580480  # O'zingizning Telegram ID-ingiz
-PRIZE_PHOTO = "https://t.me/instagram_gifts/6?single" # Yutuqlar rasmi linki
+TOKEN = "8735179134:AAGcVDl-X2INj0ZNVzkIcIGXeRmzplq8jF0"
+CHANNEL_ID = "@instagram_kasimov"  # Masalan: @inst_kasimov
+ADMIN_ID = 6052580480 # O'zingizning Telegram ID-ingiz (Raqamlarda)
+
+# --- POST HAVOLALARI ---
+PRIZE_POST_URL = "https://t.me/instagram_gifts/6?single"  # Yutuqlar haqida post linki
+RULES_POST_URL = "https://t.me/instagram_gifts/7"  # Qoidalar haqida post linki
+SUPPORT_USER = "@xodim_aka"                    # Murojaat va hamkorlik uchun
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
@@ -24,6 +28,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             full_name TEXT,
+            username TEXT,
             referrer_id INTEGER,
             points INTEGER DEFAULT 0,
             is_joined INTEGER DEFAULT 0
@@ -32,41 +37,49 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- MENU TUGMALARI ---
+# --- ASOSIY REPLIKATSIYA MENYUSI ---
 def main_menu():
     kb = [
-        [KeyboardButton(text="YUTUQLAR 🎁"), KeyboardButton(text="STATISTIKA 📊")],
-        [KeyboardButton(text="HAVOLA OLISH 🔗"), KeyboardButton(text="MA'LUMOT ℹ️")]
+        [KeyboardButton(text="YUTUQLAR 🎁"), KeyboardButton(text="PROFIL 👤")],
+        [KeyboardButton(text="STATISTIKA 📊"), KeyboardButton(text="HAVOLA OLISH 🔗")],
+        [KeyboardButton(text="QOIDALAR ℹ️"), KeyboardButton(text="MUROJAAT VA HAMKORLIK 🤝")]
     ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-# --- FUNKSIYALAR ---
+# --- A'ZOLIKNI TEKSHIRISH FUNKSIYASI ---
 async def is_member(user_id):
     try:
         member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
         return member.status in ["member", "administrator", "creator"]
-    except Exception:
+    except Exception as e:
+        logging.error(f"Tekshirishda xato: {e}")
         return False
 
-# --- HANDLERLAR ---
+# --- ASOSIY HANDLERLAR ---
+
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
     name = message.from_user.full_name
+    uname = message.from_user.username or "Noma'lum"
     args = message.text.split()
     
     conn = sqlite3.connect("contest.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO users (user_id, full_name) VALUES (?, ?)", (user_id, name))
+    cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+    existing_user = cursor.fetchone()
     
-    # Referal tizimi
-    if len(args) > 1 and args[1].isdigit():
-        ref_id = int(args[1])
-        # O'zini o'zi taklif qilmasligi va birinchi marta kirayotganini tekshirish
-        cursor.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,))
-        current_ref = cursor.fetchone()
-        if ref_id != user_id and current_ref[0] is None:
-            cursor.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (ref_id, user_id))
+    if not existing_user:
+        # Yangi odam haqida adminga bildirishnoma
+        try:
+            await bot.send_message(ADMIN_ID, f"🆕 **Yangi foydalanuvchi:**\n👤 {name}\n🆔 `{user_id}`\n🔗 @{uname}")
+        except: pass
+        
+        cursor.execute("INSERT INTO users (user_id, full_name, username) VALUES (?, ?, ?)", (user_id, name, uname))
+        if len(args) > 1 and args[1].isdigit():
+            ref_id = int(args[1])
+            if ref_id != user_id:
+                cursor.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (ref_id, user_id))
     
     conn.commit()
     conn.close()
@@ -76,7 +89,7 @@ async def cmd_start(message: types.Message):
         [InlineKeyboardButton(text="Tasdiqlash ✅", callback_data="check_sub")]
     ])
     
-    await message.answer(f"Salom {name}!\nTanlovda qatnashish uchun kanalimizga a'zo bo'ling va tasdiqlashni bosing.", reply_markup=btn)
+    await message.answer(f"Assalomu alaykum **{name}**!\n\nTanlovda qatnashish uchun kanalimizga a'zo bo'lishingiz shart. Keyin 'Tasdiqlash' tugmasini bosing 👇", reply_markup=btn, parse_mode="Markdown")
 
 @dp.callback_query(F.data == "check_sub")
 async def callback_check(call: types.CallbackQuery):
@@ -85,33 +98,48 @@ async def callback_check(call: types.CallbackQuery):
         conn = sqlite3.connect("contest.db")
         cursor = conn.cursor()
         cursor.execute("SELECT referrer_id, is_joined FROM users WHERE user_id = ?", (user_id,))
-        user_data = cursor.fetchone()
+        res = cursor.fetchone()
         
-        if user_data and user_data[1] == 0: # Hali ball berilmagan bo'lsa
-            if user_data[0]: # Uni taklif qilgan odam bo'lsa
-                cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (user_data[0],))
-            cursor.execute("UPDATE users SET is_joined = 1 WHERE user_id = ?", (user_id, ))
+        if res and res[1] == 0:
+            if res[0]:
+                cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (res[0],))
+                try:
+                    await bot.send_message(res[0], f"🎁 **Tabriklaymiz!** Sizning havolangiz orqali yangi a'zo qo'shildi. Sizga 1 ball berildi.")
+                except: pass
+            cursor.execute("UPDATE users SET is_joined = 1 WHERE user_id = ?", (user_id,))
             conn.commit()
-        
         conn.close()
+        
         await call.message.delete()
-        await call.message.answer("Tabriklaymiz! Siz ro'yxatdan o'tdingiz.", reply_markup=main_menu())
+        await call.message.answer("🎉 **Muvaffaqiyatli ro'yxatdan o'tdingiz!**\n\nQuyidagi tugmalar orqali ballaringizni tekshirishingiz va havolangizni olishingiz mumkin:", reply_markup=main_menu(), parse_mode="Markdown")
     else:
-        await call.answer("Siz hali kanalga a'zo emassiz!", show_alert=True)
+        await call.answer("❌ Siz hali kanalga a'zo emassiz!", show_alert=True)
+
+# --- TUGMALAR BILAN ISHLASH ---
 
 @dp.message(F.text == "YUTUQLAR 🎁")
 async def prizes(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Yutuqlarni ko'rish 👀", url=PRIZE_POST_URL)]
+    ])
+    await message.answer("🎁 **Tanlov yutuqlari va sovg'alar haqida to'liq ma'lumot olish uchun quyidagi tugmani bosing:**", reply_markup=kb, parse_mode="Markdown")
+
+@dp.message(F.text == "PROFIL 👤")
+async def show_profile(message: types.Message):
+    conn = sqlite3.connect("contest.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT points FROM users WHERE user_id = ?", (message.from_user.id,))
+    points = cursor.fetchone()[0]
+    conn.close()
+    
     text = (
-        "🎁 **TANLOV YUTUQLARI**\n\n"
-        "🥇 1-o'rin: [SIZNING SOVG'ANGIZ]\n"
-        "🥈 2-o'rin: [SIZNING SOVG'ANGIZ]\n"
-        "🥉 3-o'rin: [SIZNING SOVG'ANGIZ]\n\n"
-        "💡 Takliflaringiz qancha ko'p bo'lsa, yutish ehtimoli shuncha yuqori!"
+        f"👤 **Sizning profilingiz**\n\n"
+        f"📋 Ism: `{message.from_user.full_name}`\n"
+        f"🆔 ID: `{message.from_user.id}`\n\n"
+        f"🏆 **To'plangan ballaringiz: {points} ta**\n"
+        f"💡 Ball yig'ish uchun 'HAVOLA OLISH' tugmasidan foydalaning."
     )
-    try:
-        await message.answer_photo(photo=PRIZE_PHOTO, caption=text, parse_mode="Markdown")
-    except:
-        await message.answer(text, parse_mode="Markdown")
+    await message.answer(text, parse_mode="Markdown")
 
 @dp.message(F.text == "STATISTIKA 📊")
 async def statistics(message: types.Message):
@@ -119,45 +147,44 @@ async def statistics(message: types.Message):
     cursor = conn.cursor()
     cursor.execute("SELECT full_name, points FROM users WHERE is_joined = 1 ORDER BY points DESC LIMIT 10")
     top_users = cursor.fetchall()
-    
-    cursor.execute("SELECT points FROM users WHERE user_id = ?", (message.from_user.id,))
-    user_points = cursor.fetchone()[0]
     conn.close()
 
     res = "🏆 **TOP 10 ISHTIROKCHILAR**\n\n"
-    for i, (name, p) in enumerate(top_users, 1):
-        m = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
-        res += f"{m} {name} — {p} ta taklif\n"
+    if not top_users:
+        res += "Hozircha ishtirokchilar yo'q."
+    else:
+        for i, (name, p) in enumerate(top_users, 1):
+            medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
+            res += f"{medal} {name} — **{p}** ball\n"
     
-    res += f"\n👤 Sizning balingiz: **{user_points}**"
     await message.answer(res, parse_mode="Markdown")
 
+@dp.message(F.text == "QOIDALAR ℹ️")
+async def rules(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Qoidalarni o'qish 📝", url=RULES_POST_URL)]
+    ])
+    await message.answer("ℹ️ **Tanlov shartlari, g'oliblarni aniqlash tartibi va qoidalar bilan tanishish uchun tugmani bosing:**", reply_markup=kb, parse_mode="Markdown")
+
 @dp.message(F.text == "HAVOLA OLISH 🔗")
-async def my_link(message: types.Message):
-    me = await bot.get_me()
-    link = f"https://t.me/{me.username}?start={message.from_user.id}"
-    await message.answer(f"🔗 Taklif havolangiz:\n\n`{link}`\n\nUni do'stlaringizga yuboring!", parse_mode="Markdown")
+async def get_link(message: types.Message):
+    bot_info = await bot.get_me()
+    link = f"https://t.me/{bot_info.username}?start={message.from_user.id}"
+    text = (
+        f"🔗 **Sizning taklif havolangiz:**\n\n`{link}`\n\n"
+        f"👆 Ushbu havolani nusxalab do'stlaringizga yuboring. Har bir qo'shilgan a'zo uchun sizga 1 ball beriladi!"
+    )
+    await message.answer(text, parse_mode="Markdown")
 
-@dp.message(F.text == "MA'LUMOT ℹ️")
-async def info_msg(message: types.Message):
-    await message.answer("ℹ️ Tanlov qoidalari:\n1. Kanalga a'zo bo'lish shart.\n2. Faqat real odamlarni taklif qiling.\n3. Stop deyilganda tanlov yakunlanadi.")
-
-# --- ADMIN COMMANDS ---
-@dp.message(Command("results"), F.from_user.id == ADMIN_ID)
-async def admin_results(message: types.Message):
-    conn = sqlite3.connect("contest.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id, full_name, points FROM users WHERE is_joined = 1 ORDER BY points DESC LIMIT 3")
-    winners = cursor.fetchall()
-    conn.close()
-    
-    if winners:
-        text = "🏁 **TANLOV YAKUNLANDI!**\n\n"
-        for i, (uid, name, p) in enumerate(winners, 1):
-            text += f"{i}-o'rin: {name} (ID: {uid}) - {p} ball\n"
-        await message.answer(text, parse_mode="Markdown")
-    else:
-        await message.answer("Hozircha ishtirokchilar yo'q.")
+@dp.message(F.text == "MUROJAAT VA HAMKORLIK 🤝")
+async def support(message: types.Message):
+    text = (
+        f"🤝 **Murojaat va Hamkorlik**\n\n"
+        f"Savollar, takliflar yoki reklama masalalari bo'yicha bizning managerga yozishingiz mumkin:\n\n"
+        f"👤 Manager: {SUPPORT_USER}\n\n"
+        f"🛑 _Iltimos, faqat muhim masalalar yuzasidan murojaat qiling!_"
+    )
+    await message.answer(text, parse_mode="Markdown")
 
 async def main():
     init_db()
