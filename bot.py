@@ -1,6 +1,7 @@
 import logging
 import sqlite3
 import asyncio
+import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
@@ -8,11 +9,17 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 # --- KONFIGURATSIYA ---
 TOKEN = "8735179134:AAGcVDl-X2INj0ZNVzkIcIGXeRmzplq8jF0"
 CHANNEL_ID = "@instagram_kasimov"
-ADMIN_ID = 6052580480 # O'zingizning ID-ingiz
+ADMIN_ID = 6052580480 
 
 PRIZE_POST_URL = "https://t.me/instagram_gifts/6?single"
 RULES_POST_URL = "https://t.me/instagram_gifts/7"
 SUPPORT_USER = "@xodim_aka"
+
+# Railway Volume uchun ma'lumotlar bazasi yo'li
+DB_PATH = "/app/data/contest.db"
+
+# Agar papka mavjud bo'lmasa, yaratish (xatolik bermasligi uchun)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
@@ -20,7 +27,7 @@ dp = Dispatcher()
 
 # --- BAZA ---
 def init_db():
-    conn = sqlite3.connect("contest.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -37,7 +44,6 @@ def init_db():
 
 # --- IXCHAM VA CHIROYLI MENYU ---
 def main_menu():
-    # Tugmalar 2 tadan qilib ixcham joylandi
     kb = [
         [KeyboardButton(text="🎁 Yutuqlar"), KeyboardButton(text="👤 Profil")],
         [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🔗 Havola")],
@@ -61,7 +67,7 @@ async def cmd_start(message: types.Message):
     uname = message.from_user.username or "Noma'lum"
     args = message.text.split()
     
-    conn = sqlite3.connect("contest.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
     existing_user = cursor.fetchone()
@@ -91,7 +97,7 @@ async def cmd_start(message: types.Message):
 async def callback_check(call: types.CallbackQuery):
     user_id = call.from_user.id
     if await is_member(user_id):
-        conn = sqlite3.connect("contest.db")
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT referrer_id, is_joined FROM users WHERE user_id = ?", (user_id,))
         res = cursor.fetchone()
@@ -118,32 +124,36 @@ async def prizes(message: types.Message):
 
 @dp.message(F.text == "👤 Profil")
 async def show_profile(message: types.Message):
-    conn = sqlite3.connect("contest.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT points FROM users WHERE user_id = ?", (message.from_user.id,))
-    points = cursor.fetchone()[0]
+    res = cursor.fetchone()
+    points = res[0] if res else 0
     conn.close()
     await message.answer(f"👤 **Profilingiz**\n\n🆔 ID: `{message.from_user.id}`\n🏆 Ballaringiz: **{points} ta**", parse_mode="Markdown")
 
 @dp.message(F.text == "📊 Statistika")
 async def statistics(message: types.Message):
-    conn = sqlite3.connect("contest.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT full_name, points FROM users WHERE is_joined = 1 ORDER BY points DESC LIMIT 10")
     top_users = cursor.fetchall()
     conn.close()
 
     res = "🏆 **TOP 10 ISHTIROKCHILAR**\n\n"
-    for i, (name, p) in enumerate(top_users, 1):
-        medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
-        res += f"{medal} {name} — **{p}**\n"
+    if top_users:
+        for i, (name, p) in enumerate(top_users, 1):
+            medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
+            res += f"{medal} {name} — **{p}**\n"
+    else:
+        res += "Hozircha ma'lumot yo'q."
     
-    await message.answer(res if top_users else "Hozircha ma'lumot yo'q.", parse_mode="Markdown")
+    await message.answer(res, parse_mode="Markdown")
 
 @dp.message(F.text == "❗ Shartlar")
 async def rules(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📝 O'qish", url=RULES_POST_URL)]])
-    await message.answer("ℹ️ **Tanlov qoidalari:**", reply_markup=kb, parse_mode="Markdown")
+    await message.answer("❗ **Tanlov qoidalari:**", reply_markup=kb, parse_mode="Markdown")
 
 @dp.message(F.text == "🔗 Havola")
 async def get_link(message: types.Message):
@@ -153,7 +163,7 @@ async def get_link(message: types.Message):
 
 @dp.message(F.text == "👨🏻‍💻 Hamkorlik")
 async def support(message: types.Message):
-    await message.answer(f"🤝 **Hamkorlik va Murojaat:**\n\n👤 Manager: {SUPPORT_USER}", parse_mode="Markdown")
+    await message.answer(f"👨🏻‍💻 **Hamkorlik va Murojaat:**\n\n👤 Manager: {SUPPORT_USER}", parse_mode="Markdown")
 
 async def main():
     init_db()
