@@ -140,7 +140,7 @@ async def statistics(message: types.Message):
     
     await message.answer(res if top_users else "Hozircha ma'lumot yo'q.", parse_mode="Markdown")
 
-@dp.message(F.text == "ℹ️ Qoidalar")
+@dp.message(F.text == "❗ Shartlar")
 async def rules(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📝 O'qish", url=RULES_POST_URL)]])
     await message.answer("ℹ️ **Tanlov qoidalari:**", reply_markup=kb, parse_mode="Markdown")
@@ -151,7 +151,7 @@ async def get_link(message: types.Message):
     link = f"https://t.me/{bot_info.username}?start={message.from_user.id}"
     await message.answer(f"🔗 **Taklif havolangiz:**\n\n`{link}`\n\nDo'stlaringizga yuboring!", parse_mode="Markdown")
 
-@dp.message(F.text == "🤝 Hamkorlik")
+@dp.message(F.text == "👨🏻‍💻 Hamkorlik")
 async def support(message: types.Message):
     await message.answer(f"🤝 **Hamkorlik va Murojaat:**\n\n👤 Manager: {SUPPORT_USER}", parse_mode="Markdown")
 
