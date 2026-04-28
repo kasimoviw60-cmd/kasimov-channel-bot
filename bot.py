@@ -10,13 +10,13 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
 # --- KONFIGURATSIYA ---
-TOKEN = "8735179134:AAGcVDl-X2INj0ZNVzkIcIGXeRmzplq8jF0"
+TOKEN = "8251656306:AAE9fplew22iEWQPFOZbVdVzoHMFttUQaM8"
 # Ikkala majburiy kanal
 CHANNELS = ["@instagram_kasimov", "@instagram_gifts"]
 ADMIN_ID = 6052580480 
 
-PRIZE_POST_URL = "https://t.me/instagram_gifts/6?single"
-RULES_POST_URL = "https://t.me/instagram_gifts/7"
+PRIZE_POST_URL = "https://t.me/instagram_gifts/18?single"
+RULES_POST_URL = "https://t.me/instagram_gifts/20"
 SUPPORT_USER = "@xodim_aka"
 
 # Railway Volume ulanishi uchun aniq yo'l
