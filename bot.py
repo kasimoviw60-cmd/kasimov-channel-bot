@@ -5,6 +5,9 @@ import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
 
 # --- KONFIGURATSIYA ---
 TOKEN = "8735179134:AAGcVDl-X2INj0ZNVzkIcIGXeRmzplq8jF0"
@@ -18,12 +21,17 @@ SUPPORT_USER = "@xodim_aka"
 # Railway Volume uchun ma'lumotlar bazasi yo'li
 DB_PATH = "/app/data/contest.db"
 
-# Agar papka mavjud bo'lmasa, yaratish (xatolik bermasligi uchun)
+# Agar papka mavjud bo'lmasa, yaratish
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
+# Xabarlarni vaqtincha saqlash uchun MemoryStorage qo'shildi
+dp = Dispatcher(storage=MemoryStorage())
+
+# --- HOLATLAR (STATES) ---
+class FeedbackState(StatesGroup):
+    waiting_for_message = State()
 
 # --- BAZA ---
 def init_db():
@@ -161,9 +169,42 @@ async def get_link(message: types.Message):
     link = f"https://t.me/{bot_info.username}?start={message.from_user.id}"
     await message.answer(f"🔗 **Taklif havolangiz:**\n\n`{link}`\n\nDo'stlaringizga yuboring!", parse_mode="Markdown")
 
+# --- HAMKORLIK VA HABAR QOLDIRISH ---
 @dp.message(F.text == "👨🏻‍💻 Hamkorlik")
-async def support(message: types.Message):
-    await message.answer(f"👨🏻‍💻 **Hamkorlik va Murojaat:**\n\n👤 Manager: {SUPPORT_USER}", parse_mode="Markdown")
+async def support(message: types.Message, state: FSMContext):
+    await message.answer(
+        "Hamkorlik va savollar bo'lsa @xodim_aka ga yozing! yoki shu yerda yozib qoldiring!👇",
+        parse_mode="Markdown"
+    )
+    # Bot foydalanuvchidan xabar kutish rejimiga o'tadi
+    await state.set_state(FeedbackState.waiting_for_message)
+
+@dp.message(FeedbackState.waiting_for_message)
+async def forward_feedback(message: types.Message, state: FSMContext):
+    # Agar foydalanuvchi menyu tugmalarini bosib yuborsa, holatni bekor qilish
+    if message.text in ["🎁 Yutuqlar", "👤 Profil", "📊 Statistika", "🔗 Havola", "❗ Shartlar", "👨🏻‍💻 Hamkorlik"]:
+        await state.clear()
+        return
+
+    user = message.from_user
+    # Xabarni adminga yo'naltirish
+    admin_msg = (
+        f"📩 **Yangi xabar keldi!**\n\n"
+        f"👤 Kimdan: {user.full_name}\n"
+        f"🆔 ID: `{user.id}`\n"
+        f"🔗 Username: @{user.username or 'yoq'}\n\n"
+        f"📝 **Xabar:**\n{message.text}"
+    )
+    
+    try:
+        await bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
+        await message.answer("Rahmat! Xabaringiz adminga yetkazildi. ✅", reply_markup=main_menu())
+    except Exception as e:
+        await message.answer("Xabar yuborishda xatolik yuz berdi. Iltimos, keyinroq urunib ko'ring.")
+        logging.error(f"Feedback error: {e}")
+    
+    # Xabar yuborilgach holatni tozalash
+    await state.clear()
 
 async def main():
     init_db()
