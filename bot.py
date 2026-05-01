@@ -14,7 +14,7 @@ TOKEN = "8251656306:AAE9fplew22iEWQPFOZbVdVzoHMFttUQaM8"
 
 # Kanallar ro'yxati: ID tekshirish uchun, url esa tugma uchun
 CHANNELS = [
-    {"id": "@instagram_kasimov", "url": "https://t.me/instagram_kasinov"},
+    {"id": "@instagram_kasimov", "url": "https://t.me/instagram_kasimov"},
     {"id": "@instagram_gifts", "url": "https://t.me/instagram_gifts"},
     {"id": -1002447990715, "url": "https://t.me/+WSbBvewuj141MTli"} # Maxfiy kanal
 ]
