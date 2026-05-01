@@ -16,7 +16,7 @@ TOKEN = "8251656306:AAE9fplew22iEWQPFOZbVdVzoHMFttUQaM8"
 CHANNELS = [
     {"id": "@instagram_kasimov", "url": "https://t.me/instagram_kasimov"},
     {"id": "@instagram_gifts", "url": "https://t.me/instagram_gifts"},
-    {"id": -1002447990715, "url": "https://t.me/+WSbBvewuj141MTli"} # Maxfiy kanal
+    {"id": -1003783851677, "url": "https://t.me/+WSbBvewuj141MTli"} # Yangi to'g'ri ID qo'yildi
 ]
 ADMIN_ID = 6052580480 
 
@@ -254,4 +254,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logging.info("Bot to'xtatildi")
-                
+    
