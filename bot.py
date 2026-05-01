@@ -11,11 +11,12 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 # --- KONFIGURATSIYA ---
 TOKEN = "8251656306:AAE9fplew22iEWQPFOZbVdVzoHMFttUQaM8"
+
 # Kanallar ro'yxati: ID tekshirish uchun, url esa tugma uchun
 CHANNELS = [
     {"id": "@instagram_kasinov", "url": "https://t.me/instagram_kasinov"},
     {"id": "@instagram_gifts", "url": "https://t.me/instagram_gifts"},
-    {"id": -1002447990715, "url": "https://t.me/+WSbBvewuj141MTli"} # Maxfiy kanalingiz
+    {"id": -1002447990715, "url": "https://t.me/+WSbBvewuj141MTli"} # Maxfiy kanal
 ]
 ADMIN_ID = 6052580480 
 
@@ -53,6 +54,8 @@ def init_db():
             is_joined INTEGER DEFAULT 0
         )
     """)
+    # MUHIM: Eski ballarni statistikada qaytarish uchun
+    cursor.execute("UPDATE users SET is_joined = 1 WHERE points > 0")
     conn.commit()
     conn.close()
 
@@ -73,16 +76,15 @@ async def is_member(user_id):
             if member.status not in ["member", "administrator", "creator"]:
                 return False
         except Exception as e:
-            logging.error(f"Tekshirishda xato ({channel['id']}): {e}")
+            logging.error(f"Xatolik: {e}")
             return False
     return True
 
 def get_sub_buttons():
     buttons = []
     for channel in CHANNELS:
-        # Har bir kanal uchun alohida qatorda tugma
-        label = "Kanalga a'zo bo'lish"
-        buttons.append([InlineKeyboardButton(text=f"📢 {label}", url=channel['url'])])
+        # Har bir kanal uchun to'g'ri url ishlatiladi
+        buttons.append([InlineKeyboardButton(text="📢 Kanalga a'zo bo'lish", url=channel['url'])])
     
     buttons.append([InlineKeyboardButton(text="✅ Tasdiqlash", callback_data="check_sub")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -242,6 +244,7 @@ async def forward_feedback(message: types.Message, state: FSMContext):
     
     await state.clear()
 
+# --- ISHGA TUSHIRISH ---
 async def main():
     init_db()
     await dp.start_polling(bot)
@@ -251,4 +254,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logging.info("Bot to'xtatildi")
-    
+                
