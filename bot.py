@@ -11,7 +11,12 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 # --- KONFIGURATSIYA ---
 TOKEN = "8251656306:AAE9fplew22iEWQPFOZbVdVzoHMFttUQaM8"
-CHANNELS = ["@instagram_kasimov", "@instagram_gifts"]
+# Kanallar ro'yxati: ID tekshirish uchun, url esa tugma uchun
+CHANNELS = [
+    {"id": "@instagram_kasinov", "url": "https://t.me/instagram_kasinov"},
+    {"id": "@instagram_gifts", "url": "https://t.me/instagram_gifts"},
+    {"id": -1002447990715, "url": "https://t.me/+WSbBvewuj141MTli"} # Maxfiy kanalingiz
+]
 ADMIN_ID = 6052580480 
 
 PRIZE_POST_URL = "https://t.me/instagram_gifts/18?single"
@@ -64,17 +69,21 @@ def main_menu():
 async def is_member(user_id):
     for channel in CHANNELS:
         try:
-            member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+            member = await bot.get_chat_member(chat_id=channel['id'], user_id=user_id)
             if member.status not in ["member", "administrator", "creator"]:
                 return False
-        except:
+        except Exception as e:
+            logging.error(f"Tekshirishda xato ({channel['id']}): {e}")
             return False
     return True
 
 def get_sub_buttons():
     buttons = []
     for channel in CHANNELS:
-        buttons.append([InlineKeyboardButton(text=f"📢 {channel}ga a'zo bo'lish", url=f"https://t.me/{channel[1:]}")])
+        # Har bir kanal uchun alohida qatorda tugma
+        label = "Kanalga a'zo bo'lish"
+        buttons.append([InlineKeyboardButton(text=f"📢 {label}", url=channel['url'])])
+    
     buttons.append([InlineKeyboardButton(text="✅ Tasdiqlash", callback_data="check_sub")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -176,15 +185,12 @@ async def rules(message: types.Message, state: FSMContext):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📝 Ko'rish", url=RULES_POST_URL)]])
     await message.answer("❗ **Tanlov qoidalari:**", reply_markup=kb, parse_mode="Markdown")
 
-# --- HAVOLA TIZIMI (INLINE TUGMA BILAN) ---
-
 @dp.message(F.text == "🔗 Havola")
 async def get_link(message: types.Message, state: FSMContext):
     await state.clear()
     bot_info = await bot.get_me()
     link = f"https://t.me/{bot_info.username}?start={message.from_user.id}"
     
-    # Ulashish tugmasi
     share_url = f"https://t.me/share/url?url={link}&text=Tanlovda qatnashing va ajoyib yutuqlarni qo'lga kiriting!"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚀 Do'stlarga yuborish", url=share_url)]
@@ -196,8 +202,6 @@ async def get_link(message: types.Message, state: FSMContext):
         reply_markup=kb,
         parse_mode="Markdown"
     )
-
-# --- HAMKORLIK BO'LIMI (TO'G'IRLANGAN HANDLER BILAN) ---
 
 @dp.message(F.text.contains("Hamkorlik"))
 async def support(message: types.Message, state: FSMContext):
@@ -212,10 +216,8 @@ async def support(message: types.Message, state: FSMContext):
 
 @dp.message(FeedbackState.waiting_for_message)
 async def forward_feedback(message: types.Message, state: FSMContext):
-    # Menyudagi tugmalar bosilsa, holatni yopish
     if message.text in ["🎁 Yutuqlar", "👤 Profil", "📊 Statistika", "🔗 Havola", "❗ Shartlar", "👨🏻‍💻 Hamkorlik"]:
         await state.clear()
-        # Qaysi tugma bosilgan bo'lsa o'sha handlerga yuborish
         if "Yutuqlar" in message.text: await prizes(message, state)
         elif "Profil" in message.text: await show_profile(message, state)
         elif "Statistika" in message.text: await statistics(message, state)
@@ -240,7 +242,6 @@ async def forward_feedback(message: types.Message, state: FSMContext):
     
     await state.clear()
 
-# --- ISHGA TUSHIRISH ---
 async def main():
     init_db()
     await dp.start_polling(bot)
@@ -250,4 +251,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logging.info("Bot to'xtatildi")
-                                           
+    
