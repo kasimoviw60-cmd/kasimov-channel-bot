@@ -100,6 +100,14 @@ async def cmd_start(message: types.Message, state: FSMContext):
     if not res:
         # Yangi foydalanuvchi bo'lsa bazaga qo'shish
         cursor.execute("INSERT INTO users (user_id, full_name, username) VALUES (?, ?, ?)", (user_id, name, uname))
+        
+        # --- ADMINGA XABAR YUBORISH (YANGI QO'SHILDI) ---
+        try:
+            await bot.send_message(ADMIN_ID, f"🆕 **Yangi foydalanuvchi:**\n👤 Ismi: {name}\n🆔 ID: `{user_id}`\n🌐 Username: @{uname}")
+        except:
+            pass
+        # -----------------------------------------------
+
         if len(args) > 1 and args[1].isdigit():
             ref_id = int(args[1])
             if ref_id != user_id:
@@ -220,4 +228,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except:
         pass
-    
+            
