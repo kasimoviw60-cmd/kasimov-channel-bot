@@ -11,7 +11,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram import html # HTML formatlash uchun qo'shildi
 
 # --- KONFIGURATSIYA ---
-TOKEN = "8735179134:AAFLIn8G-SzHY6r3tlQqHvL8XGj4_Q3TNs8"
+TOKEN = "8251656306:AAFsv3EfGk958C7TdvTRImqi6LyCQ9AkEw8"
 
 CHANNELS = [
     {"id": "@instagram_kasimov", "url": "https://t.me/instagram_kasimov"},
